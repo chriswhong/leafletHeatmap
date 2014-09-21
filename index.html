@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset=utf-8 />
+<title>Leaflet Heat</title>
+<meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+
+<style>
+  body { margin:0; padding:0; }
+  #map { position:absolute; top:0; bottom:0; width:100%; }
+</style>
+</head>
+<body>
+<link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
+<script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+<script src='heatmap.js'></script>
+<script src='leaflet-heatmap.js'></script>
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<div id='map'></div>
+
+<!-- Example data. -->
+
+
+<script>
+// don't forget to include leaflet-heatmap.js
+var testData = {
+  max:20,
+  min:0,
+  data: [
+    {lat: 50.75, lng:-1.55, count: 10},
+    {lat: 50.75, lng:10, count: 10},
+    {lat: 50.75, lng:20, count: 10},
+    {lat: 50.75, lng:30, count: 10},
+    {lat: 50.75, lng:40, count: 20},
+  ]
+};
+
+var baseLayer = L.tileLayer(
+  'https://{s}.tiles.mapbox.com/v3/cwhong.map-hziyh867/{z}/{x}/{y}.png',{
+    attribution: '...',
+    maxZoom: 18
+  }
+);
+
+//var sodaUrl = 'http://data.cityofnewyork.us/resource/ytu5-e4k6.json?$select=agency,agency_name,complaint_type,created_date,latitude,longitude&$limit=10';
+//let Socrata do the sorting:
+var sodaUrl = "http://data.cityofnewyork.us/resource/ytu5-e4k6.json?$select=agency,agency_name,complaint_type,created_date,latitude,longitude&$order=created_date&$where=complaint_type='Noise'";
+
+var cfg = {
+  // radius should be small ONLY if scaleRadius is true (or small radius is intended)
+  // if scaleRadius is false it will be the constant radius used in pixels
+  "radius": .001,
+  "maxOpacity": 1, 
+  // scales the radius based on map zoom
+  "scaleRadius": true, 
+  // if set to false the heatmap uses the global maximum for colorization
+  // if activated: uses the data maximum within the current map boundaries 
+  //   (there will always be a red spot with useLocalExtremas true)
+  "useLocalExtrema": false,
+  // which field name in your data represents the latitude - default "lat"
+  //latField: 'latitude',
+  // which field name in your data represents the longitude - default "lng"
+  //lngField: 'longitude',
+  // which field name in your data represents the data value - default "value"
+  valueField: 'value'
+};
+
+
+
+
+var heatmapLayer = new HeatmapOverlay(cfg);
+
+var map = new L.Map('map', {
+  center: new L.LatLng(40.694060, -73.985281),
+  zoom: 14,
+  layers: [baseLayer, heatmapLayer]
+});
+
+
+
+$.getJSON( sodaUrl, function( rawData ) {
+  var goodData = [];
+  for(var i=0;i<rawData.length;i++){
+    rawData[i].value = 0;
+    rawData[i].fresh=true;
+    rawData[i].lat = parseFloat(rawData[i].latitude);
+    rawData[i].lng = parseFloat(rawData[i].longitude); 
+    rawData[i].date = new Date(rawData[i].created_date + "-04:00");
+
+    //console.log(rawData[i].created_date);
+    //console.log(rawData[i].date);
+
+    if (rawData[i].latitude && rawData[i].longitude) {
+      goodData.push(rawData[i]);
+    }; 
+  };
+
+  //console.log(goodData);
+
+  
+
+  //find the starting day
+  console.log(goodData[0].date);
+  console.log(goodData[0].date.getTime());
+
+  //get the next midnight, use to iterate through each day.
+  var nextDate = new Date(goodData[0].date.setHours(24,0,0,0));
+  console.log(nextDate);
+
+  var index = 0,
+  showData = [];
+  for (;;index++) {
+    var thisDate = goodData[index].date;
+    if(thisDate.getTime() < nextDate.getTime()) {
+      showData.push(goodData[index]);
+    } else {
+      break;
+    }
+  }
+
+  console.log(showData);
+
+  var data = {
+    max:15,
+    min:0,
+    data:showData
+  };
+
+  console.log(data);
+  //console.log(data);
+  heatmapLayer.setData(data);
+
+  var intervalCounter = 0;
+
+
+  function getAnotherDay() {
+    console.log("getanotherday called")
+    nextDate = new Date(nextDate.setHours(24,0,0,0));
+    console.log(nextDate);
+
+    for (;;index++) {
+      var thisDate = goodData[index].date;
+      if(thisDate.getTime() < nextDate.getTime()) {
+        data.data.push(goodData[index]);
+      } else {
+        break;
+      }
+    }
+  } 
+
+ setInterval(function () {
+
+  if (intervalCounter == 10){
+    intervalCounter = 0;
+    getAnotherDay();
+  } else {
+    intervalCounter++;
+  }
+
+
+  //create new array for live points, push it to the map
+  var newData = [];
+  for(var i=0;i<data.data.length;i++) {
+    var point = data.data[i];
+
+    if(point.value >= 10) {
+      point.fresh = false;
+    }
+
+    if(point.fresh) {
+      point.value = point.value + .8;
+    } else {
+      point.value = point.value - .1;
+    }
+    
+    if(point.value > 0) {
+      newData.push(data.data[i]);
+    }
+  }
+  data.data = newData;
+  
+  heatmapLayer.setData(data);
+    
+  }, 100);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</script>
+</body>
+</html>
