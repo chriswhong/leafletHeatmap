@@ -23,17 +23,7 @@
 
 <script>
 // don't forget to include leaflet-heatmap.js
-var testData = {
-  max:20,
-  min:0,
-  data: [
-    {lat: 50.75, lng:-1.55, count: 10},
-    {lat: 50.75, lng:10, count: 10},
-    {lat: 50.75, lng:20, count: 10},
-    {lat: 50.75, lng:30, count: 10},
-    {lat: 50.75, lng:40, count: 20},
-  ]
-};
+
 
 var baseLayer = L.tileLayer(
   'https://{s}.tiles.mapbox.com/v3/cwhong.map-hziyh867/{z}/{x}/{y}.png',{
@@ -44,12 +34,12 @@ var baseLayer = L.tileLayer(
 
 //var sodaUrl = 'http://data.cityofnewyork.us/resource/ytu5-e4k6.json?$select=agency,agency_name,complaint_type,created_date,latitude,longitude&$limit=10';
 //let Socrata do the sorting:
-var sodaUrl = "http://data.cityofnewyork.us/resource/ytu5-e4k6.json?$select=agency,agency_name,complaint_type,created_date,latitude,longitude&$order=created_date&$where=complaint_type='Noise'";
+var sodaUrl = "http://data.princegeorgescountymd.gov/resource/pz7s-un77.json";
 
 var cfg = {
   // radius should be small ONLY if scaleRadius is true (or small radius is intended)
   // if scaleRadius is false it will be the constant radius used in pixels
-  "radius": .001,
+  "radius": .01,
   "maxOpacity": 1, 
   // scales the radius based on map zoom
   "scaleRadius": true, 
@@ -71,28 +61,33 @@ var cfg = {
 var heatmapLayer = new HeatmapOverlay(cfg);
 
 var map = new L.Map('map', {
-  center: new L.LatLng(40.694060, -73.985281),
-  zoom: 14,
+  center: new L.LatLng(38.784921, -76.872096),
+  zoom: 10,
   layers: [baseLayer, heatmapLayer]
 });
 
 
 
 $.getJSON( sodaUrl, function( rawData ) {
+
   var goodData = [];
   for(var i=0;i<rawData.length;i++){
     rawData[i].value = 0;
     rawData[i].fresh=true;
-    rawData[i].lat = parseFloat(rawData[i].latitude);
-    rawData[i].lng = parseFloat(rawData[i].longitude); 
-    rawData[i].date = new Date(rawData[i].created_date + "-04:00");
+    if(rawData[i].location) {
+      rawData[i].lat = parseFloat(rawData[i].location.latitude);
+      rawData[i].lng = parseFloat(rawData[i].location.longitude); 
+    }
+
+    rawData[i].date = new Date(rawData[i].incident_date + "-04:00");
 
     //console.log(rawData[i].created_date);
     //console.log(rawData[i].date);
-
-    if (rawData[i].latitude && rawData[i].longitude) {
-      goodData.push(rawData[i]);
-    }; 
+    if(rawData[i].location) {
+      if (rawData[i].location.latitude && rawData[i].location.longitude) {
+        goodData.push(rawData[i]);
+      }; 
+    };
   };
 
   //console.log(goodData);
